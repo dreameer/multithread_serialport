@@ -5,7 +5,7 @@
 #include "stdafx.h"
 #include <Windows.h>
 #define READ_TIMEOUT      500      // milliseconds
-#define READ_BUF_SIZE     15        // byte
+#define READ_BUF_SIZE     14        // byte
 #define WRITE_BUF_SIZE     13        // byte
 
 void HandleASuccessfulRead(char *lpBuf, int dwRead);
@@ -47,37 +47,85 @@ DWORD WINAPI funw(void *param)
 		if(mdata->flag==1)
 		{  
 			printf("give a cmd from key board:\n"); 
-			char cmdbyte;
+			unsigned char buff[WRITE_BUF_SIZE] = {0};
+			buff[0] = 0x55;
+			buff[1] = 0xaa;
+			signed short s16 = 0;
+			unsigned short u16 = 0;
+			int datalength = 0;
 			char cmd = getchar();
 			char enter = getchar();
 			switch(cmd)
 			{
-			case 'q':cmdbyte=0x01;break;
-			case 'h':cmdbyte=0x02;break;
-			case 'k':cmdbyte=0x03;break;
-			case 'u':cmdbyte=0x04;break;
-			case 'j':cmdbyte=0x05;break;
-			case 'a':cmdbyte=0x06;break;
-			case 's':cmdbyte=0x07;break;
-			case 'd':cmdbyte=0x08;break;
-			case 'f':cmdbyte=0x09;break;
-			case 'w':cmdbyte=0x10;break;
-			default:cmdbyte=0xff;break;
+			case 'q':
+				buff[2] = 0x01;
+				buff[4] = 0x01;
+				buff[6] = 0x01;
+				datalength = 1;
+				break;
+			case 'w':
+				buff[2] = 0x01;
+				buff[4] = 0x01;
+				buff[6] = 0x00;
+				datalength = 1;
+				break;
+			case 'h':
+				buff[2] = 0x0002;
+				buff[4] = 0x02;
+				s16 = -10;
+				memcpy(&buff[6],&s16,sizeof(short));
+				datalength = 2;
+				break;
+			case 'k':
+				buff[2] = 0x0002;
+				buff[4] = 0x02;
+				s16 = 10;
+				memcpy(&buff[6],&s16,sizeof(short));
+				datalength = 2;
+				break;
+			case 'u':
+				buff[2] = 0x0003;
+				buff[4] = 0x02;
+				s16 = -10;
+				memcpy(&buff[6],&s16,sizeof(short));
+				datalength = 2;
+				break;
+			case 'j':
+				buff[2] = 0x0003;
+				buff[4] = 0x02;
+				s16 = 10;
+				memcpy(&buff[6],&s16,sizeof(short));
+				datalength = 2;
+				break;
+			case 'a':
+				buff[2] = 0x0004;
+				buff[4] = 0x02;
+				u16 = 40;
+				memcpy(&buff[6],&u16,sizeof(short));
+				datalength = 2;
+				break;
+			case 's':
+				buff[2] = 0x0005;
+				buff[4] = 0x02;
+				u16 = 40;
+				memcpy(&buff[6],&u16,sizeof(short));
+				datalength = 2;
+				break;
+			default:break;
 			}
 			printf("get cmd:%x\n",cmd);
-			unsigned char buff[WRITE_BUF_SIZE] = {0x55,0xaa,0x02,0x00,0x04,0x00,0x07,0x08,0x09,0x10,0x11,0x12,0x13};
-			buff[2] = cmdbyte;
 			unsigned int cyc = 0;
 			unsigned char cl,ch;
-			for(int i=0;i<10;i++)
+			for(int i=0;i<6+datalength;i++)
 			{
 				cyc = cyc + (unsigned int)(buff[i]);
 			}
 			cl = (cyc&0x000000ff);
 			ch = ((cyc>>8)&0x000000ff);
-			buff[10] = cl;
-			buff[11] = ch;
-			writestatus = WriteABuffer(mdata->serailport,buff,WRITE_BUF_SIZE);
+			buff[6+datalength] = cl;
+			buff[7+datalength] = ch;
+			buff[8+datalength] = 0x13;
+			writestatus = WriteABuffer(mdata->serailport,buff,9+datalength);
 			if(writestatus){
 				for(int i=0;i<WRITE_BUF_SIZE;i++)
 				{
@@ -109,9 +157,9 @@ void HandleASuccessfulRead(char *lpBuf, int dwRead)
 	{
 		for(int i=0;i<dwRead;i++)
 		{
-			printf("%x ",lpBuf[i]&0x000000ff);
+			//printf("%x ",lpBuf[i]&0x000000ff);
 		}
-		printf("\n");
+		//printf("\n");
 	}
 	
 }
@@ -258,12 +306,14 @@ int _tmain(int argc, _TCHAR* argv[])
 	if (hComm == INVALID_HANDLE_VALUE)
 	{
 		printf("error opening port; abort\n");
+		getchar();
 		return FALSE;
 	}
 	DCB dcb;
 	FillMemory(&dcb, sizeof(dcb), 0);
 	dcb.DCBlength = sizeof(dcb);
 	if (!BuildCommDCB("115200,n,8,1", &dcb)) {   
+		getchar();
 		return FALSE;
 	}
 	else
@@ -273,6 +323,7 @@ int _tmain(int argc, _TCHAR* argv[])
 	{
 		printf("Error in SetCommState. Possibly a problem with the communications\n");
 		printf("port handle or a problem with the DCB structure itself.\n");
+		getchar();
 		return FALSE;
 	}
 	paramr->flag = 1;
@@ -290,5 +341,6 @@ int _tmain(int argc, _TCHAR* argv[])
 	WaitForSingleObject(threadhandler,INFINITE);
 	WaitForSingleObject(threadhandlew,INFINITE);
 	CloseHandle(hComm);
+	getchar();
 	return 0;
 }
